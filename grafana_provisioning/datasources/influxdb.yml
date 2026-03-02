@@ -1,0 +1,28 @@
+apiVersion: 1
+
+datasources:
+  - name: InfluxDB - Batch (lambda_batch)
+    uid: influx_batch
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    jsonData:
+      version: Flux
+      organization: lambda_org
+      defaultBucket: lambda_batch
+    secureJsonData:
+      token: ZY-PlYbVQq8ZoqEliZ9qv9i-Ptso9Uc7j-j-j4qCs1CAktFBaVcsT_UHIScRwahmTzTp2VWqEDoEhQYQDTioxw==
+    isDefault: false
+
+  - name: InfluxDB - Speed (lambda_speed)
+    uid: influx_speed
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    jsonData:
+      version: Flux
+      organization: lambda_org
+      defaultBucket: lambda_speed
+    secureJsonData:
+      token: ZY-PlYbVQq8ZoqEliZ9qv9i-Ptso9Uc7j-j-j4qCs1CAktFBaVcsT_UHIScRwahmTzTp2VWqEDoEhQYQDTioxw==
+    isDefault: true

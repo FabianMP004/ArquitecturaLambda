@@ -78,25 +78,43 @@ Spark + InfluxDB (Tono)
 2) Procesar datos (Spark Structred Streaming)
 `spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0 spark_kafka_speed.py`
 
-------------------------------------------------------------
-Serving Layer
-------------------------------------------------------------
-
-
-COMBINAR SPEED Y BATCH
-
-
 Ingresar a la UI de InfluxDB (http://localhost:8086)
  - Organization: lambda_org
  - Bucket: lambda_speed
  - Token: modificar el archivo de 'spark_kafka_speed.py' para incluir el token creado
 
-Query para ver ventas recientes:
+
+
+```sh
+docker-compose down -v
+docker-compose up -d
+docker exec -it kafka kafka-topics --create --topic log_de_eventos --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
+docker exec -it kafka kafka-topics --list --bootstrap-server localhost:9092
+clear
 ```
-from(bucket: "lambda_speed")
-  |> range(start: -5m)
-  |> filter(fn: (r) => r["_measurement"] == "sales")
-  |> sort(columns: ["_time"], desc: true)
-  |> limit(n: 20)
-```
-  
+
+InfluxDB (http://localhost:8086)
+ - Username:     admin
+ - Password:     admin123
+ - Organization: lambda_org
+ - Bucket:       lambda_speed
+                 lambda_batch
+ - Token:        <TOKEN>
+ > Cambiar INFLUX_TOKEN al token creado por InfluxDB en `serving_layer.py` y `spark_kafka_speed.py`
+ > Cambiar token al token creado por InfluxDB en `grafana_provisioning/datasources/dashboard.yml`
+ 
+BATCH LAYER
+1) ---
+2) ---
+3) `python serving_layer.py` <- Lee los parquets y los pasa a InfluxDB
+
+SPEED LAYER
+1) `spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0 spark_kafka_speed.py`
+ 
+PRODUCER: `python producer.py`
+
+
+SERVING LAYER
+Grafana (http://localhost:3000)
+ - Username:     admin
+ - Password:     admin

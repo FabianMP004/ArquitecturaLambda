@@ -24,7 +24,7 @@ KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"
 KAFKA_TOPIC = "log_de_eventos"
 
 INFLUX_URL = "http://localhost:8086"
-INFLUX_TOKEN = "ylMBLFqBlqdsaHJGkXjAg8k3JzeKP9FZB9LKwJnseZ69ZpbWeIE_Bgbn4IFq7euWWVfdnPMCgbdpbJT4syA3iw=="
+INFLUX_TOKEN = "ZY-PlYbVQq8ZoqEliZ9qv9i-Ptso9Uc7j-j-j4qCs1CAktFBaVcsT_UHIScRwahmTzTp2VWqEDoEhQYQDTioxw=="
 INFLUX_ORG = "lambda_org"
 INFLUX_BUCKET = "lambda_speed"
 

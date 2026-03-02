@@ -1,0 +1,330 @@
+{
+  "uid": "lambda-architecture",
+  "title": "Lambda Architecture – Unified View",
+  "description": "Merges batch layer (lambda_batch) with speed layer (lambda_speed) for a complete picture.",
+  "tags": ["lambda", "ecommerce"],
+  "refresh": "30s",
+  "time": { "from": "now-7d", "to": "now" },
+  "timepicker": {},
+  "schemaVersion": 38,
+  "version": 1,
+  "panels": [
+
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Revenue",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+
+    {
+      "id": 2,
+      "title": "Revenue per Hour",
+      "description": "Historical hours from batch layer parquets, most recent hours from speed layer live events.",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 1, "w": 16, "h": 8 },
+      "datasource": { "uid": "influx_batch", "type": "influxdb" },
+      "targets": [
+        {
+          "refId": "Batch",
+          "datasource": { "uid": "influx_batch", "type": "influxdb" },
+          "query": "from(bucket: \"lambda_batch\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"revenue_per_hour\")\n  |> filter(fn: (r) => r._field == \"revenue\")\n  |> map(fn: (r) => ({ r with layer: \"batch\" }))"
+        },
+        {
+          "refId": "Speed",
+          "datasource": { "uid": "influx_speed", "type": "influxdb" },
+          "query": "from(bucket: \"lambda_speed\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"sales\")\n  |> filter(fn: (r) => r._field == \"total\")\n  |> aggregateWindow(every: 1h, fn: sum, createEmpty: false)\n  |> map(fn: (r) => ({ r with layer: \"speed\" }))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "custom": { "lineWidth": 2, "fillOpacity": 10 }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byFrameRefID", "options": "Speed" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } },
+              { "id": "displayName", "value": "Speed Layer (live)" }
+            ]
+          },
+          {
+            "matcher": { "id": "byFrameRefID", "options": "Batch" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } },
+              { "id": "displayName", "value": "Batch Layer (processed)" }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "tooltip": { "mode": "multi" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      }
+    },
+
+    {
+      "id": 3,
+      "title": "Revenue per Day",
+      "type": "barchart",
+      "gridPos": { "x": 16, "y": 1, "w": 8, "h": 8 },
+      "datasource": { "uid": "influx_batch", "type": "influxdb" },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: \"lambda_batch\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"revenue_per_day\")\n  |> filter(fn: (r) => r._field == \"revenue\")"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "currencyUSD" }
+      }
+    },
+
+    {
+      "id": 4,
+      "type": "row",
+      "title": "Orders & Events",
+      "gridPos": { "x": 0, "y": 9, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+
+    {
+      "id": 5,
+      "title": "Events per Hour",
+      "description": "Count of all events. Batch covers historical hours; speed covers live data.",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 10, "w": 16, "h": 8 },
+      "datasource": { "uid": "influx_batch", "type": "influxdb" },
+      "targets": [
+        {
+          "refId": "Batch",
+          "datasource": { "uid": "influx_batch", "type": "influxdb" },
+          "query": "from(bucket: \"lambda_batch\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"events_per_hour\")\n  |> filter(fn: (r) => r._field == \"event_count\")"
+        },
+        {
+          "refId": "Speed",
+          "datasource": { "uid": "influx_speed", "type": "influxdb" },
+          "query": "from(bucket: \"lambda_speed\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"sales\")\n  |> filter(fn: (r) => r._field == \"quantity\")\n  |> aggregateWindow(every: 1h, fn: count, createEmpty: false)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "lineWidth": 2, "fillOpacity": 10 }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byFrameRefID", "options": "Speed" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } },
+              { "id": "displayName", "value": "Speed Layer (live)" }
+            ]
+          },
+          {
+            "matcher": { "id": "byFrameRefID", "options": "Batch" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } },
+              { "id": "displayName", "value": "Batch Layer (processed)" }
+            ]
+          }
+        ]
+      }
+    },
+
+    {
+      "id": 6,
+      "title": "Events by Type",
+      "type": "piechart",
+      "gridPos": { "x": 16, "y": 10, "w": 8, "h": 8 },
+      "datasource": { "uid": "influx_batch", "type": "influxdb" },
+      "targets": [
+        {
+          "refId": "Batch",
+          "datasource": { "uid": "influx_batch", "type": "influxdb" },
+          "query": "from(bucket: \"lambda_batch\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"events_by_type\")\n  |> filter(fn: (r) => r._field == \"total\")\n  |> last()"
+        },
+        {
+          "refId": "Speed",
+          "datasource": { "uid": "influx_speed", "type": "influxdb" },
+          "query": "from(bucket: \"lambda_speed\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"sales\")\n  |> filter(fn: (r) => r._field == \"quantity\")\n  |> group(columns: [\"event_type\"])\n  |> count()"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "values": ["value"] }
+      }
+    },
+
+    {
+      "id": 7,
+      "type": "row",
+      "title": "Top Products",
+      "gridPos": { "x": 0, "y": 18, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+
+    {
+      "id": 8,
+      "title": "Top Products by Revenue",
+      "description": "Real-time aggregation from speed layer. Complements batch top-products-by-qty.",
+      "type": "bargauge",
+      "gridPos": { "x": 0, "y": 19, "w": 12, "h": 8 },
+      "datasource": { "uid": "influx_speed", "type": "influxdb" },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: \"lambda_speed\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"sales\")\n  |> filter(fn: (r) => r._field == \"total\")\n  |> group(columns: [\"product_id\"])\n  |> sum()\n  |> sort(columns: [\"_value\"], desc: true)\n  |> limit(n: 10)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "currencyUSD" }
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      }
+    },
+
+    {
+      "id": 9,
+      "title": "Top Products by Quantity",
+      "type": "bargauge",
+      "gridPos": { "x": 12, "y": 19, "w": 12, "h": 8 },
+      "datasource": { "uid": "influx_batch", "type": "influxdb" },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: \"lambda_batch\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"top_products_by_qty\")\n  |> filter(fn: (r) => r._field == \"total_qty\")\n  |> last()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short" }
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      }
+    },
+
+    {
+      "id": 10,
+      "type": "row",
+      "title": "Funnel & KPIs",
+      "gridPos": { "x": 0, "y": 27, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+
+    {
+      "id": 11,
+      "title": "Conversion Funnel",
+      "type": "bargauge",
+      "gridPos": { "x": 0, "y": 28, "w": 8, "h": 7 },
+      "datasource": { "uid": "influx_batch", "type": "influxdb" },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: \"lambda_batch\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"funnel_counts\")\n  |> filter(fn: (r) => r._field == \"count\")\n  |> last()"
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      }
+    },
+
+    {
+      "id": 12,
+      "title": "Funnel Ratios",
+      "type": "stat",
+      "gridPos": { "x": 8, "y": 28, "w": 8, "h": 7 },
+      "datasource": { "uid": "influx_batch", "type": "influxdb" },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: \"lambda_batch\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"funnel_ratios\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> last()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "percentunit" }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "vertical",
+        "colorMode": "background"
+      }
+    },
+
+    {
+      "id": 13,
+      "title": "AOV – Average Order Value",
+      "description": "Batch = historical AOV. Speed = live AOV from recent events.",
+      "type": "stat",
+      "gridPos": { "x": 16, "y": 28, "w": 8, "h": 7 },
+      "datasource": { "uid": "influx_batch", "type": "influxdb" },
+      "targets": [
+        {
+          "refId": "Batch AOV",
+          "datasource": { "uid": "influx_batch", "type": "influxdb" },
+          "query": "from(bucket: \"lambda_batch\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"aov\")\n  |> filter(fn: (r) => r._field == \"avg_order_value\")\n  |> last()"
+        },
+        {
+          "refId": "Speed AOV",
+          "datasource": { "uid": "influx_speed", "type": "influxdb" },
+          "query": "from(bucket: \"lambda_speed\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"sales\")\n  |> filter(fn: (r) => r._field == \"total\")\n  |> mean()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "currencyUSD" }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "orientation": "vertical"
+      }
+    },
+
+    {
+      "id": 14,
+      "type": "row",
+      "title": "Users",
+      "gridPos": { "x": 0, "y": 35, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+
+    {
+      "id": 15,
+      "title": "Top Active Users (Batch)",
+      "type": "table",
+      "gridPos": { "x": 0, "y": 36, "w": 12, "h": 7 },
+      "datasource": { "uid": "influx_batch", "type": "influxdb" },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: \"lambda_batch\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"top_users\")\n  |> filter(fn: (r) => r._field == \"total_events\")\n  |> last()\n  |> sort(columns: [\"_value\"], desc: true)"
+        }
+      ],
+      "options": {
+        "sortBy": [{ "displayName": "_value", "desc": true }]
+      }
+    },
+
+    {
+      "id": 16,
+      "title": "Top Active Users (Speed – live last window)",
+      "type": "table",
+      "gridPos": { "x": 12, "y": 36, "w": 12, "h": 7 },
+      "datasource": { "uid": "influx_speed", "type": "influxdb" },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: \"lambda_speed\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"sales\")\n  |> filter(fn: (r) => r._field == \"quantity\")\n  |> group(columns: [\"user_id\"])\n  |> count()\n  |> sort(columns: [\"_value\"], desc: true)\n  |> limit(n: 20)"
+        }
+      ]
+    }
+
+  ]
+}

@@ -41,6 +41,8 @@ services:
       - "3000:3000"
     volumes:
       - grafana_data:/var/lib/grafana
+      - ./grafana_provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./grafana_provisioning/dashboards:/etc/grafana/provisioning/dashboards
 
 volumes:
   influxdb_data:
