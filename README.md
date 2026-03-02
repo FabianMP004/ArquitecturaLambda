@@ -67,3 +67,36 @@ spark.read.parquet("datalake/processed/funnel_ratios").show(false)
 6) (Opcional) Limpiar todo y reiniciar desde cero
 rm -rf datalake checkpoints spark-warehouse
 mkdir -p batch checkpoints datalake/raw/events datalake/processed
+
+------------------------------------------------------------
+Spark + InfluxDB (Tono)
+------------------------------------------------------------
+1) Crear topic de kafka
+`docker exec -it kafka kafka-topics --create --topic log_de_eventos --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1`
+`docker exec -it kafka kafka-topics --list --bootstrap-server localhost:9092`
+
+2) Procesar datos (Spark Structred Streaming)
+`spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0 spark_kafka_speed.py`
+
+------------------------------------------------------------
+Serving Layer
+------------------------------------------------------------
+
+
+COMBINAR SPEED Y BATCH
+
+
+Ingresar a la UI de InfluxDB (http://localhost:8086)
+ - Organization: lambda_org
+ - Bucket: lambda_speed
+ - Token: modificar el archivo de 'spark_kafka_speed.py' para incluir el token creado
+
+Query para ver ventas recientes:
+```
+from(bucket: "lambda_speed")
+  |> range(start: -5m)
+  |> filter(fn: (r) => r["_measurement"] == "sales")
+  |> sort(columns: ["_time"], desc: true)
+  |> limit(n: 20)
+```
+  
