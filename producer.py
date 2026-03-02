@@ -8,12 +8,13 @@ import sys
 
 # Configuración Kafka (igual que el workshop)
 producer = KafkaProducer(
-    bootstrap_servers=['localhost:9092'],
+    bootstrap_servers=['127.0.0.1:9092'],
     value_serializer=lambda v: json.dumps(v).encode('utf-8'),
-    retries=5,                      # reintenta 5 veces
-    request_timeout_ms=10000,       # 10 segundos por request
-    metadata_max_age_ms=300000,     # metadata fresca
-    max_block_ms=10000,             # no esperes más de 10s en _wait_on_metadata
+    api_version=(2, 0, 0),          # ← add this line
+    retries=5,
+    request_timeout_ms=10000,
+    metadata_max_age_ms=300000,
+    max_block_ms=10000,
     connections_max_idle_ms=540000
 )
 

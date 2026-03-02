@@ -12,8 +12,8 @@ from influxdb_client.client.write_api import SYNCHRONOUS
 # CONFIG
 # ──────────────────────────────────────────────
 
-INFLUX_URL   = "http://localhost:8086"
-INFLUX_TOKEN = "ZY-PlYbVQq8ZoqEliZ9qv9i-Ptso9Uc7j-j-j4qCs1CAktFBaVcsT_UHIScRwahmTzTp2VWqEDoEhQYQDTioxw=="
+INFLUX_URL   = "http://127.0.0.1:8086"
+INFLUX_TOKEN = "2jnFpAv9uNq9Z_3ynatuvQqFdGmmuSx4ecmVouwGXg8Q-S4BaMZm4ZJQFTJ3RsgOFLYIRovw_26Sc4eTCO080A=="
 INFLUX_ORG   = "lambda_org"
 INFLUX_BUCKET = "lambda_batch"
 

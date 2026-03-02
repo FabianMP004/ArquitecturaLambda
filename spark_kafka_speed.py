@@ -24,7 +24,7 @@ KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"
 KAFKA_TOPIC = "log_de_eventos"
 
 INFLUX_URL = "http://localhost:8086"
-INFLUX_TOKEN = "ZY-PlYbVQq8ZoqEliZ9qv9i-Ptso9Uc7j-j-j4qCs1CAktFBaVcsT_UHIScRwahmTzTp2VWqEDoEhQYQDTioxw=="
+INFLUX_TOKEN = "2jnFpAv9uNq9Z_3ynatuvQqFdGmmuSx4ecmVouwGXg8Q-S4BaMZm4ZJQFTJ3RsgOFLYIRovw_26Sc4eTCO080A=="
 INFLUX_ORG = "lambda_org"
 INFLUX_BUCKET = "lambda_speed"
 
@@ -85,7 +85,9 @@ def write_to_influx(batch_df, batch_id):
         logger.info("Processing batch %s with %d rows", batch_id, row_count)
 
         client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
-        write_api = client.write_api()
+        
+        from influxdb_client.client.write_api import SYNCHRONOUS
+        write_api = client.write_api(write_options=SYNCHRONOUS)
 
         rows = batch_df.collect()
         for row in rows:
