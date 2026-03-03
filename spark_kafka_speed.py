@@ -1,3 +1,4 @@
+# Este archivo ha sido deshabilitado. Usa spark_kafka_streaming.py
 import logging
 import sys
 from datetime import datetime

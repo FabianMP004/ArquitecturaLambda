@@ -1,16 +1,18 @@
- # Este archivo ha sido deshabilitado. Usa spark_kafka_streaming.py
+# spark_kafka_streaming.py
+# Unifica el procesamiento batch y speed en un solo Spark Streaming
+
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, from_json
+from pyspark.sql.functions import col, from_json, to_timestamp
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, ArrayType, FloatType
+import os
+ 
+# Configuración
+KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"
+KAFKA_TOPIC = "log_de_eventos"
+CHECKPOINT_LOCATION = "./checkpoints/streaming"
+RAW_PATH = "./datalake/raw/events"
 
-# 1) Spark session
-spark = SparkSession.builder \
-    .appName("Ecommerce Batch Processing") \
-    .getOrCreate()
-
-spark.sparkContext.setLogLevel("WARN")
-
-# 2) Schema (lo que produce tu producer.py)
+# Esquema de los datos
 schema = StructType([
     StructField("id", StringType()),
     StructField("timestamp", StringType()),
@@ -27,22 +29,25 @@ schema = StructType([
     ]))
 ])
 
-# 3) Read from Kafka (STREAM)
+# Spark session
+spark = SparkSession.builder \
+    .appName("Lambda Unified Streaming") \
+    .getOrCreate()
+spark.sparkContext.setLogLevel("WARN")
+
+# Leer de Kafka
 kafka_df = spark.readStream \
     .format("kafka") \
-    .option("kafka.bootstrap.servers", "localhost:9092") \
-    .option("subscribe", "log_de_eventos") \
+    .option("kafka.bootstrap.servers", KAFKA_BOOTSTRAP_SERVERS) \
+    .option("subscribe", KAFKA_TOPIC) \
     .option("startingOffsets", "earliest") \
     .load()
 
-# 4) Parse Kafka value (bytes) -> string -> json -> columns
+# Parsear el valor de Kafka
 json_df = kafka_df.selectExpr("CAST(value AS STRING) AS json_value")
+parsed_df = json_df.select(from_json(col("json_value"), schema).alias("root"))
 
-parsed_df = json_df.select(
-    from_json(col("json_value"), schema).alias("root")
-)
-
-# 5) Flatten (root.data.*)
+# Aplanar los datos
 final_df = parsed_df.select(
     col("root.id").alias("id"),
     col("root.timestamp").alias("timestamp"),
@@ -54,12 +59,21 @@ final_df = parsed_df.select(
     col("root.data.total").alias("total")
 )
 
-# 6) Output to console (STREAM)
-query = final_df.writeStream \
+# Guardar datos en el datalake/raw (para batch)
+raw_query = final_df.writeStream \
+    .format("parquet") \
+    .option("path", RAW_PATH) \
+    .option("checkpointLocation", CHECKPOINT_LOCATION + "/raw") \
+    .outputMode("append") \
+    .start()
+
+# Mostrar datos en consola (para speed)
+console_query = final_df.writeStream \
     .outputMode("append") \
     .format("console") \
     .option("truncate", "false") \
-    .option("checkpointLocation", "./checkpoints/console") \
+    .option("checkpointLocation", CHECKPOINT_LOCATION + "/console") \
     .start()
 
-query.awaitTermination()
+raw_query.awaitTermination()
+console_query.awaitTermination()
