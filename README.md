@@ -18,13 +18,8 @@ Formato de cada mensaje (JSON):
   "timestamp": "2026-02-25T18:13:45.123456",
   "data": {
     "event_type": "agregar_carrito | eliminar_carrito | modificar_carrito | view_product | compra",
-    "user_id": 42,
-    "product_id": 1050,          // para la mayoría
     "quantity": 3,               // agregar/modificar
     "items": [ {...}, {...} ],   // solo para compra
-    "total": 127.50              // solo para compra
-  }
-}
 ```
 
 ------------------------------------------------------------
@@ -42,10 +37,6 @@ Requisitos:
 
 2) Verificar que Kafka está recibiendo eventos (opcional)
 `docker-compose exec kafka kafka-console-consumer --bootstrap-server localhost:9092 --topic log_de_eventos --from-beginning --max-messages 5`
-
-3) Ingesta RAW: Kafka -> datalake/raw/events (streaming)
-`spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.13:4.1.1 batch/ingest_raw.py`
-
 >Nota: Este script se queda corriendo para ir “bajando” eventos del tópico a Parquet. Para detenerlo usa Ctrl + C cuando ya tengas suficientes eventos.
 
 4) Procesar métricas batch: RAW -> PROCESSED (Parquet)
@@ -66,65 +57,73 @@ Luego corre:
 spark.read.parquet("datalake/processed/events_by_type").show(false)
 spark.read.parquet("datalake/processed/revenue_per_day").show(false)
 spark.read.parquet("datalake/processed/top_products_by_qty").show(false)
-spark.read.parquet("datalake/processed/funnel_ratios").show(false)
-```
 
+    ------------------------------------------------------------
+    Cómo correr Spark + Data Lake (Unificado)
+    ------------------------------------------------------------
 
-6) (Opcional) Limpiar todo y reiniciar desde cero
-``` sh
-rm -rf datalake checkpoints spark-warehouse
-mkdir -p batch checkpoints datalake/raw/events datalake/processed
-```
+    Requisitos:
+    - Java 17
+    - Spark 4.1.1 instalado (por ejemplo con Homebrew)
+    - Conector Kafka para Spark 4.1.1 (Scala 2.13):
+      org.apache.spark:spark-sql-kafka-0-10_2.13:4.1.1
 
-------------------------------------------------------------
-Spark + InfluxDB (Tono)
-------------------------------------------------------------
-1) Crear topic de kafka
-`docker exec -it kafka kafka-topics --create --topic log_de_eventos --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1`
-`docker exec -it kafka kafka-topics --list --bootstrap-server localhost:9092`
+    1) (Opcional pero recomendado) Crear carpetas del Data Lake
+    `mkdir -p batch checkpoints datalake/raw/events datalake/processed`
 
-2) Procesar datos (Spark Structred Streaming)
-`spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0 spark_kafka_speed.py`
+    2) Verificar que Kafka está recibiendo eventos (opcional)
+    `docker-compose exec kafka kafka-console-consumer --bootstrap-server localhost:9092 --topic log_de_eventos --from-beginning --max-messages 5`
 
-Ingresar a la UI de InfluxDB (http://localhost:8086)
- - Organization: lambda_org
- - Bucket: lambda_speed
- - Token: modificar el archivo de 'spark_kafka_speed.py' para incluir el token creado
+    3) Ingesta RAW: Kafka -> datalake/raw/events (streaming)
+    `spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.13:4.1.1 spark_kafka_streaming.py`
 
+    >Nota: Este script se queda corriendo para ir “bajando” eventos del tópico a Parquet y mostrando en consola en tiempo real. Para detenerlo usa Ctrl + C cuando ya tengas suficientes eventos.
 
+    4) Procesar métricas batch: RAW -> PROCESSED (Parquet)
+    `spark-submit batch/process_metrics.py`
 
- ---
- ---
-## Resumen de comandos
+    Salida esperada:
+    - datalake/processed/events_by_type
+    - datalake/processed/revenue_per_day
+    - datalake/processed/top_products_by_qty
+    - datalake/processed/funnel_ratios
 
-```sh
-docker-compose down -v
-docker-compose up -d
-docker exec -it kafka kafka-topics --create --topic log_de_eventos --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
-docker exec -it kafka kafka-topics --list --bootstrap-server localhost:9092
-clear
-```
+    5) Verificar resultados con Spark Shell
+    `spark-shell`
 
-**REVISAR QUE INFLUX TENGA LOS 2 BUCKETS**
+    Luego corre:
 
-InfluxDB (http://localhost:8086)
- - Username:     `admin`
- - Password:     `admin123`
- - Organization: `lambda_org`
- - Bucket:       `lambda_speed`, `lambda_batch`
- - Token:        `<TOKEN>`
+    ``` sh
+    spark.read.parquet("datalake/processed/events_by_type").show(false)
+    spark.read.parquet("datalake/processed/revenue_per_day").show(false)
+    spark.read.parquet("datalake/processed/top_products_by_qty").show(false)
+    spark.read.parquet("datalake/processed/funnel_ratios").show(false)
+    ```
 
-> Cambiar INFLUX_TOKEN al token creado por InfluxDB en `serving_layer.py` y `spark_kafka_speed.py`
+    6) (Opcional) Limpiar todo y reiniciar desde cero
+    ``` sh
+    rm -rf datalake checkpoints spark-warehouse
+    mkdir -p batch checkpoints datalake/raw/events datalake/processed
+    ```
 
-> Cambiar token al token creado por InfluxDB en `grafana_provisioning/datasources/dashboard.yml`
+    ------------------------------------------------------------
+    Notas importantes:
+    ------------------------------------------------------------
+    - Los scripts batch/ingest_raw.py y spark_kafka_speed.py han sido deshabilitados. Usa únicamente spark_kafka_streaming.py para la ingesta y visualización en tiempo real.
+    - El procesamiento batch sigue igual con batch/process_metrics.py leyendo desde datalake/raw/events.
+    - Para métricas en tiempo real, puedes agregar procesamiento adicional en spark_kafka_streaming.py.
+    - El serving layer y Grafana funcionan igual, solo asegúrate de que los buckets y rutas sean correctos.
 
-**BATCH LAYER**
-1) `spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0 batch/ingest_raw.py`
-2) `spark-submit batch/process_metrics.py`
+    **PRODUCER:** `python producer.py`
 
-**SPEED LAYER**
-1) `spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0 spark_kafka_speed.py`
- 
+    **SERVING LAYER**
+
+    Grafana (http://localhost:3000)
+     - Username:     admin
+     - Password:     admin
+
+     `python serving_layer.py`
+     > Esto debe correrse después de `spark-submit batch/process_metrics.py`
 **PRODUCER:** `python producer.py`
 
 **SERVING LAYER**
